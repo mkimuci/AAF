@@ -8,7 +8,7 @@
 
 ```bat
 @echo off
-cd /d "C:\Users\mkkim11\Desktop"
+cd /d "C:\Users\<your username>\Desktop"
 git clone https://github.com/shanqing-cai/audapter_mex
 git clone https://github.com/blab-lab/audapter_matlab
 git clone https://github.com/blab-lab/commonmcode
