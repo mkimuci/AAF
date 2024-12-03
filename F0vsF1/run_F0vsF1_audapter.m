@@ -12,12 +12,13 @@ function expt = run_F0vsF1_audapter(expt, mode)
     % Setup Audapter
     audioInterfaceName = 'Focusrite USB'; % Example device name
     Audapter('deviceName', audioInterfaceName);
+
     Audapter('ost', '', 0); % Nullify online status tracking
     Audapter('pcf', '', 0); % Nullify perturbation config files
     
-
     % Set default and experiment-specific Audapter parameters
     p = getAudapterDefaultParams(expt.gender);
+
     if isfield(expt, 'audapterp')
         p = add2struct(p, expt.audapterp);
     end 
@@ -45,33 +46,31 @@ function expt = run_F0vsF1_audapter(expt, mode)
         currentSession = expt.iExpt;
         sessionText = sprintf('Preparing Session %d of %d', ...
                               currentSession, nSessions);
+
         switch expt.shiftType
             case "F0"
+                p.bShift = 1;
+                p.bTimeDomainShift = 1;
+                p.bRatioShift = 0;
+                p.bMelShift = 0;
+
                 if isequal(lower(expt.gender), 'female')
                     p.pitchLowerBoundHz = 150;
                     p.pitchUpperBoundHz = 300;
                 elseif isequal(lower(expt.gender), 'male')
-                    p.pitchLowerBoundHz = 80;
-                    p.pitchUpperBoundHz = 160;
-                end
-                
-                % p.bTimeDomainShift = 1;
+                    p.pitchLowerBoundHz = 75;
+                    p.pitchUpperBoundHz = 200;
+                end                
     
-                % not sure what this does at the moment - MK
+                % not sure what this does - MK
                 p.nDelay = 7;
                 p.bCepsLift = 1;
                 p.rmsThresh = 0.011;
     
-            case "F1"
-                % This is actually the default settings
-                % We can change if we want
-                p.f1Min = 0;
-                p.f1Max = 5000;  
-                p.f2Min = 0;
-                p.f2Max = 5000;  
-        
+            case "F1"        
                 p.bTrack = 1;
                 p.bShift = 1;
+                p.bTimeDomainShift = 0;
                 p.bRatioShift = 0;
                 p.bMelShift = 1;
             otherwise
@@ -82,7 +81,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
         expt.iExpt = 0;
         sessionText = sprintf('Starting Practice Session...');
     end
-    AudapterIO('init', p);
+    
     
     h_sessionInfo = draw_exptText(h_fig, 0.5, 0.5, sessionText, ...
                                   'FontSize', 60, 'Color', 'white', ...
@@ -141,10 +140,10 @@ function expt = run_F0vsF1_audapter(expt, mode)
             switch expt.shiftType
                 case "F0"
                     % no delay, shift immediately
-                    % p.timeDomainPitchShiftAlgorithm = 'pp_none';
-                    % p.timeDomainPitchShiftSchedule = [0, expt.shiftMags(itrial)];  
-                    p.bPitchShift = 1;
-                    p.pitchShiftRatio = expt.shiftMags(itrial);
+                    p.timeDomainPitchShiftAlgorithm = 'pp_none';
+                    p.timeDomainPitchShiftSchedule = [0, expt.shiftMags(itrial); 2, expt.shiftMags(itrial)];  
+                    % p.bPitchShift = 1;
+                    % p.pitchShiftRatio = expt.shiftMags(itrial);
                 case "F1"
                     % Set perturbation parameters
                     p.pertAmp = expt.shiftMags(itrial) * ones(1, 257);
@@ -155,8 +154,6 @@ function expt = run_F0vsF1_audapter(expt, mode)
                     % do nothing
             end
 
-            % Start Audapter trial
-            AudapterIO('reset');
             fprintf('Starting trial %d\n', itrial);
             Audapter('start');
 
@@ -165,10 +162,13 @@ function expt = run_F0vsF1_audapter(expt, mode)
             h_text = draw_exptText(h_fig, 0.5, 0.5, txt2display, ...
                                    'Color', 'white', 'FontSize', 200, ...
                                    'HorizontalAlignment', 'center');
-            pause(expt.timing.stimdur);
 
-            % Stop Audapter trial and retrieve data
+            % Start Audapter trial
+            AudapterIO('init', p);
+            AudapterIO('reset');        
+            pause(expt.timing.stimdur);
             Audapter('stop');
+            
             fprintf('Audapter ended for trial %d\n', itrial);
             data = AudapterIO('getData');
             
