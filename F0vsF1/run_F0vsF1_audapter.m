@@ -2,6 +2,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
     if nargin < 1, error('Must pass in valid expt variable.'); end
     if nargin < 2, mode = 'main'; end
 
+    
     % Setup figures
     h_fig = setup_exptFigs();
     get_figinds_audapter; % Subplot names: stim = 1, ctrl = 2, dup = 3
@@ -13,6 +14,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
     Audapter('deviceName', audioInterfaceName);
     Audapter('ost', '', 0); % Nullify online status tracking
     Audapter('pcf', '', 0); % Nullify perturbation config files
+    
 
     % Set default and experiment-specific Audapter parameters
     p = getAudapterDefaultParams(expt.gender);
@@ -37,49 +39,50 @@ function expt = run_F0vsF1_audapter(expt, mode)
         p.fb3Gain = 0.035;
     end
     
-    switch expt.shiftType
 
-        case "F0"
-            if isequal(lower(expt.gender), 'female')
-                p.pitchLowerBoundHz = 150;
-                p.pitchUpperBoundHz = 300;
-            elseif isequal(lower(expt.gender), 'male')
-                p.pitchLowerBoundHz = 80;
-                p.pitchUpperBoundHz = 160;
-            end
-            
-            % p.bTimeDomainShift = 1;
-
-            % not sure what this does at the moment - MK
-            p.nDelay = 7;
-            p.bCepsLift = 1;
-            p.rmsThresh = 0.011;
-
-        case "F1"
-            
-            % This is actually the default settings
-            % We can change if we want
-            p.f1Min = 0;
-            p.f1Max = 5000;  
-            p.f2Min = 0;
-            p.f2Max = 5000;  
-    
-            p.bTrack = 1;
-            p.bShift = 1;
-            p.bRatioShift = 0;
-            p.bMelShift = 1;
-    end
-
-
-    % Display current session information
     if strcmp(mode, 'main')
         nSessions = 2 * expt.nF0vsF1expt; % Total sessions (F0 and F1)
         currentSession = expt.iExpt;
         sessionText = sprintf('Preparing Session %d of %d', ...
                               currentSession, nSessions);
+        switch expt.shiftType
+            case "F0"
+                if isequal(lower(expt.gender), 'female')
+                    p.pitchLowerBoundHz = 150;
+                    p.pitchUpperBoundHz = 300;
+                elseif isequal(lower(expt.gender), 'male')
+                    p.pitchLowerBoundHz = 80;
+                    p.pitchUpperBoundHz = 160;
+                end
+                
+                % p.bTimeDomainShift = 1;
+    
+                % not sure what this does at the moment - MK
+                p.nDelay = 7;
+                p.bCepsLift = 1;
+                p.rmsThresh = 0.011;
+    
+            case "F1"
+                % This is actually the default settings
+                % We can change if we want
+                p.f1Min = 0;
+                p.f1Max = 5000;  
+                p.f2Min = 0;
+                p.f2Max = 5000;  
+        
+                p.bTrack = 1;
+                p.bShift = 1;
+                p.bRatioShift = 0;
+                p.bMelShift = 1;
+            otherwise
+                % do nothing
+        end
     else
+        expt.shiftType = "none";
+        expt.iExpt = 0;
         sessionText = sprintf('Starting Practice Session...');
     end
+    AudapterIO('init', p);
     
     h_sessionInfo = draw_exptText(h_fig, 0.5, 0.5, sessionText, ...
                                   'FontSize', 60, 'Color', 'white', ...
@@ -101,15 +104,14 @@ function expt = run_F0vsF1_audapter(expt, mode)
     delete_exptText(h_fig, h_ready);
     pause(1);
 
+    firstTrial = 1;
+    lastTrial = expt.ntrials;
+
     % Determine trial range
     if strcmp(mode, 'duration')
         fprintf('Starting duration practice...\n');
-        firstTrial = 1;
-        lastTrial = expt.ntrials;
     else
         fprintf('Starting main experiment...\n');
-        firstTrial = 1;
-        lastTrial = expt.ntrials_per_block;
     end
 
     % Run trials
@@ -149,10 +151,11 @@ function expt = run_F0vsF1_audapter(expt, mode)
                     p.pertPhi = expt.shiftAngles(itrial) * ones(1, 257);
                     Audapter('setParam', 'pertAmp', p.pertAmp);
                     Audapter('setParam', 'pertPhi', p.pertPhi);
+                otherwise
+                    % do nothing
             end
 
             % Start Audapter trial
-            AudapterIO('init', p);
             AudapterIO('reset');
             fprintf('Starting trial %d\n', itrial);
             Audapter('start');
@@ -168,7 +171,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
             Audapter('stop');
             fprintf('Audapter ended for trial %d\n', itrial);
             data = AudapterIO('getData');
-
+            
             % Remove displayed text
             delete_exptText(h_fig, h_text);
 
@@ -176,17 +179,37 @@ function expt = run_F0vsF1_audapter(expt, mode)
             subplot_expt_spectrogram(data, p, h_fig, h_sub);
 
             % Check if participant spoke loud enough
-            bGoodTrial = check_rmsThresh(data, expt.amplcalc, h_sub(3));
             subplot(h_sub(3));
             yyaxis right;
             hline(2, 'r', '-'); % Reference line
 
-            if ~bGoodTrial
+            expectedSamples = round(expt.timing.stimdur * ...
+                data.params.sRate);
+            actualSamples = length(data.signalIn);
+
+            if actualSamples < expectedSamples * 0.75
+                bGoodTrial = 2;
+            else
+                bGoodTrial = check_rmsThresh(data, expt.amplcalc, h_sub(3));
+            end
+
+            if bGoodTrial == 0
                 % Display feedback to speak louder
-                h_feedback = draw_exptText(h_fig, 0.5, 0.2, 'Please speak a little louder.', ...
-                                           'FontSize', 40, 'Color', 'yellow', 'HorizontalAlignment', 'center');
+                h_feedback = draw_exptText(h_fig, 0.5, 0.2, ...
+                    'Please speak a little louder.', ...
+                    'FontSize', 40, 'Color', 'yellow', ...
+                    'HorizontalAlignment', 'center');
                 pause(expt.timing.visualfbdur);
                 delete_exptText(h_fig, h_feedback);
+            elseif bGoodTrial == 2
+                % Display feedback to speak louder
+                h_feedback = draw_exptText(h_fig, 0.5, 0.2, ...
+                    ' ', ...
+                    'FontSize', 40, 'Color', 'yellow', ...
+                    'HorizontalAlignment', 'center');
+                pause(expt.timing.visualfbdur);
+                delete_exptText(h_fig, h_feedback);
+                bGoodTrial = 0;
             elseif expt.bDurFB(itrial)
                 % Display duration feedback
                 [h_dur, success] = plot_duration_feedback_filled(h_fig(stim), data, expt.durcalc);
@@ -220,6 +243,23 @@ function expt = run_F0vsF1_audapter(expt, mode)
             audiowrite(signalOutFileName, data.signalOut, data.params.sRate);
         end
     end
+
+
+    if strcmp(mode, 'main')
+        sessionText = sprintf('Session %d of %d Complete', ...
+                              currentSession, nSessions);
+    else
+        sessionText = sprintf('Practice Session Complete');
+    end
+
+    h_sessionInfo = draw_exptText(h_fig, 0.5, 0.5, sessionText, ...
+                                  'FontSize', 60, 'Color', 'white', ...
+                                  'HorizontalAlignment', 'center');
+    
+    pause(2); % Adjust duration as needed
+    
+    % Remove the session info text
+    delete_exptText(h_fig, h_sessionInfo);
 
     fprintf('%s complete.\n', mode);
     close(h_fig);
