@@ -1,7 +1,6 @@
 function expt = run_F0vsF1_audapter(expt, mode)
     if nargin < 1, error('Must pass in valid expt variable.'); end
     if nargin < 2, mode = 'main'; end
-
     
     % Setup figures
     h_fig = setup_exptFigs();
@@ -40,7 +39,6 @@ function expt = run_F0vsF1_audapter(expt, mode)
         p.fb3Gain = 0.035;
     end
     
-
     if strcmp(mode, 'main')
         nSessions = 2 * expt.nF0vsF1expt; % Total sessions (F0 and F1)
         currentSession = expt.iExpt;
@@ -82,7 +80,6 @@ function expt = run_F0vsF1_audapter(expt, mode)
         sessionText = sprintf('Starting Practice Session...');
     end
     
-    
     h_sessionInfo = draw_exptText(h_fig, 0.5, 0.5, sessionText, ...
                                   'FontSize', 60, 'Color', 'white', ...
                                   'HorizontalAlignment', 'center');
@@ -92,7 +89,6 @@ function expt = run_F0vsF1_audapter(expt, mode)
     
     % Remove the session info text
     delete_exptText(h_fig, h_sessionInfo);
-
 
     % Give instructions and wait for keypress
     h_ready = draw_exptText(h_fig, 0.5, 0.5, ...
@@ -154,18 +150,18 @@ function expt = run_F0vsF1_audapter(expt, mode)
                     % do nothing
             end
 
+            AudapterIO('init', p);
+            AudapterIO('reset');        
+            
+            % Display visual stimuli
             fprintf('Starting trial %d\n', itrial);
-            Audapter('start');
-
-            % Display word
             txt2display = expt.listWords{itrial};
             h_text = draw_exptText(h_fig, 0.5, 0.5, txt2display, ...
                                    'Color', 'white', 'FontSize', 200, ...
                                    'HorizontalAlignment', 'center');
-
-            % Start Audapter trial
-            AudapterIO('init', p);
-            AudapterIO('reset');        
+            
+            % Start and stop Audapter
+            Audapter('start');
             pause(expt.timing.stimdur);
             Audapter('stop');
             
@@ -211,6 +207,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
                 delete_exptText(h_fig, h_feedback);
                 bGoodTrial = 0;
             elseif expt.bDurFB(itrial)
+
                 % Display duration feedback
                 [h_dur, success] = plot_duration_feedback_filled(h_fig(stim), data, expt.durcalc);
                 expt.success(itrial) = success;
@@ -243,7 +240,6 @@ function expt = run_F0vsF1_audapter(expt, mode)
             audiowrite(signalOutFileName, data.signalOut, data.params.sRate);
         end
     end
-
 
     if strcmp(mode, 'main')
         sessionText = sprintf('Session %d of %d Complete', ...
