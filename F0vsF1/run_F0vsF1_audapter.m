@@ -80,6 +80,11 @@ function expt = run_F0vsF1_audapter(expt, mode)
         sessionText = sprintf('Starting Practice Session...');
     end
     
+    p.f1Min = 100;
+    p.f1Max = 900;  
+    p.f2Min = 1500;
+    p.f2Max = 2500;  
+
     h_sessionInfo = draw_exptText(h_fig, 0.5, 0.5, sessionText, ...
                                   'FontSize', 60, 'Color', 'white', ...
                                   'HorizontalAlignment', 'center');
@@ -111,6 +116,9 @@ function expt = run_F0vsF1_audapter(expt, mode)
 
     % Run trials
     for itrial = firstTrial:lastTrial
+        timestamps = struct();
+        trialStartTime = tic; % Start timing for the trial
+
         bGoodTrial = 0;
         while ~bGoodTrial
             % Pause controls
@@ -132,14 +140,11 @@ function expt = run_F0vsF1_audapter(expt, mode)
             ctrltxt = sprintf('Trial: %d/%d, Condition: %s', itrial, lastTrial, expt.listConds{itrial});
             text(h_sub(1), 0, 0.5, ctrltxt, 'Color', 'white', ...
                  'FontSize', 30, 'HorizontalAlignment', 'center');
-
             switch expt.shiftType
                 case "F0"
                     % no delay, shift immediately
                     p.timeDomainPitchShiftAlgorithm = 'pp_none';
-                    p.timeDomainPitchShiftSchedule = [0, expt.shiftMags(itrial); 2, expt.shiftMags(itrial)];  
-                    % p.bPitchShift = 1;
-                    % p.pitchShiftRatio = expt.shiftMags(itrial);
+                    p.timeDomainPitchShiftSchedule = [0, expt.shiftMags(itrial); 2, expt.shiftMags(itrial)]; 
                 case "F1"
                     % Set perturbation parameters
                     p.pertAmp = expt.shiftMags(itrial) * ones(1, 257);
@@ -152,18 +157,23 @@ function expt = run_F0vsF1_audapter(expt, mode)
 
             AudapterIO('init', p);
             AudapterIO('reset');        
-            
+            timestamps.audapterInit = toc(trialStartTime);
+
             % Display visual stimuli
             fprintf('Starting trial %d\n', itrial);
             txt2display = expt.listWords{itrial};
             h_text = draw_exptText(h_fig, 0.5, 0.5, txt2display, ...
                                    'Color', 'white', 'FontSize', 200, ...
                                    'HorizontalAlignment', 'center');
-            
+            timestamps.stimDisplayed = toc(trialStartTime);
+
             % Start and stop Audapter
             Audapter('start');
+            timestamps.audapterStart = toc(trialStartTime);
+
             pause(expt.timing.stimdur);
             Audapter('stop');
+            timestamps.audapterStop = toc(trialStartTime);
             
             fprintf('Audapter ended for trial %d\n', itrial);
             data = AudapterIO('getData');
@@ -189,6 +199,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
                 bGoodTrial = check_rmsThresh(data, expt.amplcalc, h_sub(3));
             end
 
+            timestamps.feedbackStart = toc(trialStartTime);
             if bGoodTrial == 0
                 % Display feedback to speak louder
                 h_feedback = draw_exptText(h_fig, 0.5, 0.2, ...
@@ -221,9 +232,13 @@ function expt = run_F0vsF1_audapter(expt, mode)
                 % Remove feedback display
                 delete_exptText(h_fig, h_dur);
             end
+            timestamps.feedbackEnd = toc(trialStartTime);
 
             % Add intertrial interval with jitter
             pause(expt.timing.interstimdur + rand * expt.timing.interstimjitter);
+            timestamps.jitterEnd = toc(trialStartTime);
+
+            data.timestamps = timestamps;
 
             % Save trial data
             trialFile = fullfile(expt.dataPath, sprintf('trial_%d_%d.mat', expt.iExpt, itrial));

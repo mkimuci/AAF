@@ -1,5 +1,5 @@
-function expt = run_F0vsF1_expt(expt, bTestMode)
-    addpath(genpath("C:\Users\mkkim11\AAFnew"));
+ function expt = run_F0vsF1_expt(expt, bTestMode)
+    addpath(genpath("C:\Users\mkkim\AAF"));
 
     if nargin < 1, expt = []; end
     if nargin < 2 || isempty(bTestMode), bTestMode = 0; end
@@ -23,7 +23,7 @@ function expt = run_F0vsF1_expt(expt, bTestMode)
     if bTestMode, expt.nF0vsF1expt = 1; end % just once if test mode
 
     % Determine experiment order based on participant number parity
-    if mod(expt.snum, 2) == 0
+    if mod(str2double(expt.snum(end)), 2) == 0
         expt.exptOrder = repmat({'F0', 'F1'}, 1, expt.nF0vsF1expt);
     else
         expt.exptOrder = repmat({'F1', 'F0'}, 1, expt.nF0vsF1expt);
@@ -34,8 +34,6 @@ function expt = run_F0vsF1_expt(expt, bTestMode)
     expt.shiftNames = {'noShift', 'shiftDown', 'shiftUp'};
     expt.words      = {'head', 'dead', 'bed'};
     expt.conds      = expt.shiftNames;
-    
-    % expt.shiftMag   = 125; % Shift magnitude if F1
 
     % Timing and duration feedback parameters
     expt.timing  = get_timing_params();

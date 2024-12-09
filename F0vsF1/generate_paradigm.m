@@ -32,7 +32,7 @@ function expt = generate_paradigm(expt)
     end
 
     % Break trials setup
-    expt.breakFrequency = expt.ntrials_per_block * 2; % Break every 2 blocks
+    expt.breakFrequency = expt.ntrials_per_block * expt.nblocks; % No break
     expt.breakTrials = expt.breakFrequency:expt.breakFrequency:expt.ntrials;
     
     % Duration feedback setup
