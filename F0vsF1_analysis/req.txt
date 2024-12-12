@@ -1,0 +1,6 @@
+numpy
+scipy
+praat-parselmouth
+matplotlib
+seaborn
+tqdm
