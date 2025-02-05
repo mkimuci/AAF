@@ -1,1 +1,7 @@
 logs/
+free-speech/
+commoncode/
+audapter_matlab/
+*.mexw64
+*.asv
+*.zip
