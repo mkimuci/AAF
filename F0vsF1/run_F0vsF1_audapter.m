@@ -189,38 +189,38 @@ function expt = run_F0vsF1_audapter(expt, mode)
             yyaxis right;
             hline(2, 'r', '-'); % Reference line
 
-            expectedSamples = round(expt.timing.stimdur * ...
-                data.params.sRate);
-            actualSamples = length(data.signalIn);
-
-            if actualSamples < expectedSamples * 0.75
-                bGoodTrial = 2;
-            else
+            % expectedSamples = round(expt.timing.stimdur * ...
+            %     data.params.sRate);
+            % actualSamples = length(data.signalIn);
+            % 
+            % if actualSamples < expectedSamples * 0.75
+            %     bGoodTrial = 2;
+            % else
                 bGoodTrial = check_rmsThresh(data, expt.amplcalc, h_sub(3));
-            end
+            % end
 
             timestamps.feedbackStart = toc(trialStartTime);
             if bGoodTrial == 0
                 % Display feedback to speak louder
-                h_feedback = draw_exptText(h_fig, 0.5, 0.2, ...
-                    'Please speak a little louder.', ...
-                    'FontSize', 40, 'Color', 'yellow', ...
+                h_feedback = draw_exptText(h_fig, 0.5, 0.4, ...
+                    '◯', ...  % 'Please speak a little louder.'
+                    'FontSize', 120, 'Color', 'g', ...
                     'HorizontalAlignment', 'center');
                 pause(expt.timing.visualfbdur);
                 delete_exptText(h_fig, h_feedback);
-            elseif bGoodTrial == 2
-                % Display feedback to speak louder
-                h_feedback = draw_exptText(h_fig, 0.5, 0.2, ...
-                    ' ', ...
-                    'FontSize', 40, 'Color', 'yellow', ...
-                    'HorizontalAlignment', 'center');
-                pause(expt.timing.visualfbdur);
-                delete_exptText(h_fig, h_feedback);
-                bGoodTrial = 0;
+            % elseif bGoodTrial == 2
+            %     % Audapter didn't collect enough samples
+            %     h_feedback = draw_exptText(h_fig, 0.5, 0.2, ...
+            %         ' ', ...
+            %         'FontSize', 40, 'Color', 'yellow', ...
+            %         'HorizontalAlignment', 'center');
+            %     pause(expt.timing.visualfbdur);
+            %     delete_exptText(h_fig, h_feedback);
+            %     bGoodTrial = 0;
             elseif expt.bDurFB(itrial)
 
                 % Display duration feedback
-                [h_dur, success] = plot_duration_feedback_filled(h_fig(stim), data, expt.durcalc);
+                [h_dur, success] = plot_duration_feedback_circles(h_fig(stim), data, expt.durcalc);
                 expt.success(itrial) = success;
 
                 % Clone figure for duplication
