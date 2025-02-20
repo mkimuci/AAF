@@ -42,7 +42,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
     if strcmp(mode, 'main')
         nSessions = 2 * expt.nF0vsF1expt; % Total sessions (F0 and F1)
         currentSession = expt.iExpt;
-        sessionText = sprintf('Preparing Session %d of %d', ...
+        sessionText = sprintf('Session %d of %d', ...
                               currentSession, nSessions);
 
         switch expt.shiftType
@@ -77,7 +77,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
     else
         expt.shiftType = "none";
         expt.iExpt = 0;
-        sessionText = sprintf('Starting Practice Session...');
+        sessionText = sprintf('Practice Session');
     end
     
     p.f1Min = 100;
@@ -85,7 +85,8 @@ function expt = run_F0vsF1_audapter(expt, mode)
     p.f2Min = 1500;
     p.f2Max = 2500;  
 
-    h_sessionInfo = draw_exptText(h_fig, 0.5, 0.5, sessionText, ...
+    prepareText = ['Preparing ' sessionText '...'];
+    h_sessionInfo = draw_exptText(h_fig, 0.5, 0.5, prepareText, ...
                                   'FontSize', 60, 'Color', 'white', ...
                                   'HorizontalAlignment', 'center');
     
@@ -95,14 +96,33 @@ function expt = run_F0vsF1_audapter(expt, mode)
     % Remove the session info text
     delete_exptText(h_fig, h_sessionInfo);
 
+    readyText = [sessionText ' will soon begin...'];
     % Give instructions and wait for keypress
     h_ready = draw_exptText(h_fig, 0.5, 0.5, ...
-                            'Press START key to start.', ...
+                            readyText, ...
                             'FontSize', 60, 'Color', 'white', ...
                             'HorizontalAlignment', 'center');
-    pause
+
+    % Enable all keys first
+    DisableKeysForKbCheck([]);
+    
+    validTrigger = false;
+    while ~validTrigger
+        [keyIsDown, ~, keyCode] = KbCheck;
+        if keyIsDown
+            % Check if '5%' was pressed
+            if find(keyCode) == KbName('5%')
+                % We got the MRI trigger once
+                validTrigger = true;
+                % Disable all further '5%' inputs so repeated triggers are ignored
+                DisableKeysForKbCheck(KbName('5%'));
+            end
+        end
+    end
+    exptStartTime = GetSecs();
+
     delete_exptText(h_fig, h_ready);
-    pause(1);
+    pause(3);
 
     firstTrial = 1;
     lastTrial = expt.ntrials;
@@ -117,7 +137,10 @@ function expt = run_F0vsF1_audapter(expt, mode)
     % Run trials
     for itrial = firstTrial:lastTrial
         timestamps = struct();
-        trialStartTime = tic; % Start timing for the trial
+        % trialStartTime = tic; % Start timing for the trial
+
+        trialStartTime = GetSecs();
+        timestamps.trialOnset = trialStartTime - exptStartTime;
 
         bGoodTrial = 0;
         while ~bGoodTrial
@@ -157,7 +180,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
 
             AudapterIO('init', p);
             AudapterIO('reset');        
-            timestamps.audapterInit = toc(trialStartTime);
+            % timestamps.audapterInit = toc(trialStartTime);
 
             % Display visual stimuli
             fprintf('Starting trial %d\n', itrial);
@@ -165,15 +188,15 @@ function expt = run_F0vsF1_audapter(expt, mode)
             h_text = draw_exptText(h_fig, 0.5, 0.5, txt2display, ...
                                    'Color', 'white', 'FontSize', 200, ...
                                    'HorizontalAlignment', 'center');
-            timestamps.stimDisplayed = toc(trialStartTime);
+            % timestamps.stimDisplayed = toc(trialStartTime);
 
             % Start and stop Audapter
             Audapter('start');
-            timestamps.audapterStart = toc(trialStartTime);
+            % timestamps.audapterStart = toc(trialStartTime);
 
             pause(expt.timing.stimdur);
             Audapter('stop');
-            timestamps.audapterStop = toc(trialStartTime);
+            % timestamps.audapterStop = toc(trialStartTime);
             
             fprintf('Audapter ended for trial %d\n', itrial);
             data = AudapterIO('getData');
@@ -199,7 +222,7 @@ function expt = run_F0vsF1_audapter(expt, mode)
                 bGoodTrial = check_rmsThresh(data, expt.amplcalc, h_sub(3));
             % end
 
-            timestamps.feedbackStart = toc(trialStartTime);
+            % timestamps.feedbackStart = toc(trialStartTime);
             if bGoodTrial == 0
                 % Display feedback to speak louder
                 h_feedback = draw_exptText(h_fig, 0.5, 0.4, ...
@@ -232,13 +255,26 @@ function expt = run_F0vsF1_audapter(expt, mode)
                 % Remove feedback display
                 delete_exptText(h_fig, h_dur);
             end
-            timestamps.feedbackEnd = toc(trialStartTime);
+            % timestamps.feedbackEnd = toc(trialStartTime);
 
             % Add intertrial interval with jitter
             pause(expt.timing.interstimdur + rand * expt.timing.interstimjitter);
-            timestamps.jitterEnd = toc(trialStartTime);
+            % timestamps.jitterEnd = toc(trialStartTime);
 
             data.timestamps = timestamps;
+
+            % -- Only log for the "main" experiment --
+            if strcmp(mode, 'main')    
+                % currentSession is the same as 'expt.iExpt' from your code
+                fid = fopen(expt.csvPath, 'a');
+                fprintf(fid, '%d,%d,%.4f,%s,%s\n', ...
+                        expt.iExpt, ...               % currentSession
+                        itrial, ...                  % iTrial
+                        timestamps.trialOnset, ...   % trial onset from GetSecs
+                        expt.shiftType, ...          % shiftType (e.g. "F0" or "F1")
+                        expt.listConds{itrial});     % condition label
+                fclose(fid);
+            end
 
             % Save trial data
             trialFile = fullfile(expt.dataPath, sprintf('trial_%d_%d.mat', expt.iExpt, itrial));
@@ -267,7 +303,19 @@ function expt = run_F0vsF1_audapter(expt, mode)
                                   'FontSize', 60, 'Color', 'white', ...
                                   'HorizontalAlignment', 'center');
     
-    pause(2); % Adjust duration as needed
+    validTrigger = false;
+    while ~validTrigger
+        [keyIsDown, ~, keyCode] = KbCheck;
+        if keyIsDown
+            % Check if '6^' was pressed
+            if find(keyCode) == KbName('6^')
+                validTrigger = true;
+                DisableKeysForKbCheck([]);
+            end
+        end
+    end
+
+    pause(1); % Adjust duration as needed
     
     % Remove the session info text
     delete_exptText(h_fig, h_sessionInfo);

@@ -1,4 +1,4 @@
- function expt = run_F0vsF1_expt(expt, bTestMode)
+function expt = run_F0vsF1_expt(expt, bTestMode)
     addpath(genpath("C:\Users\mkkim\AAF"));
 
     if nargin < 1, expt = []; end
@@ -8,6 +8,14 @@
     if ~isfield(expt, 'snum'), expt.snum = get_snum; end
     expt.dataPath = get_acoustSavePath(expt.name, expt.snum);
     if ~exist(expt.dataPath, 'dir'), mkdir(expt.dataPath); end
+
+    expt.csvPath = fullfile(expt.dataPath, 'expt_log.csv');
+    % If the CSV doesn't exist yet, write a header row
+    if ~exist(expt.csvPath, 'file')
+        fid = fopen(expt.csvPath, 'a');
+        fprintf(fid, 'currentSession,iTrial,trialOnset,shiftType,condition\n');
+        fclose(fid);
+    end
 
     % General experiment parameters
     if ~isfield(expt, 'gender'), expt.gender = get_height; end
